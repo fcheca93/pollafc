@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PollaFC — Mundial 2026</title>
+  <meta name="theme-color" content="#1a5c3a" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--green-dark:#0d2b1a;--green-mid:#1a5c3a;--green-main:#1D9E75;--green-pale:#e1f5ee;--gold:#c9a84c;--gold-pale:#faeeda;--white:#ffffff;--off-white:#f5f7f2;--gray-200:#e8e8e2;--gray-300:#c4c4be;--gray-400:#a0a098;--gray-500:#888880;--gray-700:#444441;--gray-900:#1a1a16;--red:#e24b4a;--font-display:'Barlow Condensed',sans-serif;--font-body:'Barlow',sans-serif;--r-sm:6px;--r-md:10px;--r-lg:16px;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;}
+    body{font-family:var(--font-body);background:var(--off-white);color:var(--gray-900);min-height:100vh;}
+    input,select,button{font-family:var(--font-body);}button{cursor:pointer;}
+    .screen{display:none;min-height:100vh;flex-direction:column;}
+    .screen.active{display:flex;animation:fadeIn .18s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .app-header{background:var(--green-mid);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:50;}
+    .header-left .logo-name{font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--white);letter-spacing:1px;line-height:1;}
+    .header-left .logo-name span{color:#9FE1CB;}
+    .header-left .logo-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;}
+    .header-logo{width:48px;height:48px;object-fit:contain;}
+    .bottom-nav{background:var(--white);border-top:1px solid var(--gray-200);display:flex;flex-shrink:0;position:sticky;bottom:0;z-index:50;}
+    .bottom-nav button{flex:1;background:none;border:none;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--gray-400);transition:color .15s;}
+    .bottom-nav button.active{color:var(--green-main);font-weight:600;}
+    .bottom-nav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;}
+    .scroll-body{flex:1;overflow-y:auto;padding:20px 16px 28px;}
+    .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px 16px;border-radius:var(--r-md);font-size:15px;font-weight:600;border:none;transition:opacity .15s,transform .1s;}
+    .btn:active{transform:scale(.98);}
+    .btn+.btn{margin-top:10px;}
+    .btn-primary{background:var(--green-main);color:var(--white);}
+    .btn-outline{background:none;color:var(--green-main);border:1.5px solid var(--green-main);}
+    .btn-ghost{background:none;color:var(--gray-500);border:1px solid var(--gray-300);}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-size:12px;color:var(--gray-500);margin-bottom:5px;font-weight:500;}
+    .field input,.field select{width:100%;padding:11px 14px;border:1.5px solid var(--gray-300);border-radius:var(--r-md);font-size:15px;color:var(--gray-900);background:var(--white);outline:none;transition:border-color .15s;appearance:none;}
+    .field input:focus,.field select:focus{border-color:var(--green-main);}
+    .card{background:var(--white);border-radius:var(--r-lg);border:1px solid var(--gray-200);padding:14px 16px;margin-bottom:12px;}
+    .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+    .pill-green{background:var(--green-pale);color:var(--green-mid);}
+    .pill-amber{background:var(--gold-pale);color:#7a4f00;}
+    .pill-gray{background:var(--off-white);color:var(--gray-500);border:1px solid var(--gray-300);}
+    .pill-live{background:var(--red);color:var(--white);animation:blink 2s infinite;}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.7}}
+    .divider{display:flex;align-items:center;gap:10px;margin:16px 0;}
+    .divider-line{flex:1;height:1px;background:var(--gray-300);}
+    .divider span{font-size:12px;color:var(--gray-500);}
+    .slabel{font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.8px;margin:18px 0 10px;}
+    .steps{display:flex;gap:6px;margin-bottom:20px;}
+    .step-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-300);}
+    .step-dot.done{background:var(--green-main);}
+    .step-dot.active{background:var(--green-main);width:24px;border-radius:4px;}
+    .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+    .av-green{background:var(--green-pale);color:var(--green-mid);}
+    .av-blue{background:#e6f1fb;color:#185fa5;}
+    .av-coral{background:#faece7;color:#993c1d;}
+    .av-purple{background:#eeedfe;color:#534ab7;}
+    .av-amber{background:var(--gold-pale);color:#7a4f00;}
+    .toggle{width:42px;height:24px;background:var(--green-main);border-radius:12px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;}
+    .toggle.off{background:var(--gray-300);}
+    .toggle::after{content:'';position:absolute;top:3px;right:3px;width:18px;height:18px;background:var(--white);border-radius:50%;transition:right .2s;}
+    .toggle.off::after{right:auto;left:3px;}
+    .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--gray-200);}
+    .toggle-label{font-size:14px;font-weight:500;}
+    .toggle-sub{font-size:12px;color:var(--gray-500);margin-top:2px;}
+    .error-msg{background:#fce8e8;color:#8b1a1a;border-radius:var(--r-md);padding:10px 14px;font-size:13px;margin-bottom:12px;display:none;}
+    .error-msg.show{display:block;}
+    .loading-overlay{display:none;position:fixed;inset:0;background:rgba(13,43,26,.85);z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+    .loading-overlay.show{display:flex;}
+    .spinner{width:44px;height:44px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--green-main);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-txt{color:var(--white);font-size:14px;}
+    #s-login .login-hero{background:var(--green-mid);padding:40px 20px 32px;text-align:center;flex-shrink:0;}
+    #s-login .login-hero img{width:80px;height:80px;object-fit:contain;margin-bottom:12px;}
+    #s-login .brand{font-family:var(--font-display);font-size:36px;font-weight:800;color:var(--white);letter-spacing:2px;}
+    #s-login .brand span{color:#9FE1CB;}
+    #s-login .tagline{font-size:13px;color:rgba(255,255,255,.6);margin-top:4px;}
+    #s-login .login-body{flex:1;padding:28px 20px 32px;}
+    #s-login h2{font-family:var(--font-display);font-size:26px;font-weight:700;margin-bottom:4px;}
+    #s-login .sub{font-size:14px;color:var(--gray-500);margin-bottom:22px;}
+    .link-text{text-align:center;font-size:13px;color:var(--gray-500);margin-top:16px;}
+    .link-text a{color:var(--green-main);font-weight:600;text-decoration:none;}
+    .group-banner{background:var(--green-dark);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+    .group-banner .gname{font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--white);}
+    .group-banner .gmeta{font-size:12px;color:rgba(255,255,255,.55);margin-top:2px;}
+    .progress-bar{height:4px;background:var(--gray-300);border-radius:2px;margin-bottom:4px;}
+    .progress-fill{height:4px;background:var(--green-main);border-radius:2px;transition:width .3s;}
+    .progress-label{font-size:12px;color:var(--gray-500);margin-bottom:14px;}
+    .match-card{background:var(--white);border-radius:var(--r-lg);border:1px solid var(--gray-200);padding:14px 16px;margin-bottom:10px;}
+    .match-teams{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    .team{display:flex;flex-direction:column;align-items:center;gap:4px;width:96px;}
+    .team-flag{font-size:28px;line-height:1;}
+    .team-name{font-size:12px;color:var(--gray-500);text-align:center;font-weight:500;}
+    .score-wrap{display:flex;align-items:center;gap:8px;}
+    .score-box{width:40px;height:40px;border:1.5px solid var(--gray-300);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--gray-700);background:var(--off-white);cursor:pointer;transition:all .15s;}
+    .score-box.filled{background:var(--green-pale);border-color:var(--green-main);color:var(--green-mid);}
+    .score-box.empty{color:var(--gray-300);font-size:14px;}
+    .score-sep{font-size:16px;color:var(--gray-300);font-weight:700;}
+    .match-footer{display:flex;justify-content:space-between;align-items:center;}
+    .match-time{font-size:11px;color:var(--gray-500);}
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center;}
+    .modal-overlay.open{display:flex;}
+    .modal-sheet{background:var(--white);border-radius:24px 24px 0 0;padding:24px 20px 40px;width:100%;max-width:420px;}
+    .modal-title{font-family:var(--font-display);font-size:20px;font-weight:800;margin-bottom:20px;text-align:center;}
+    .modal-teams{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .modal-team{display:flex;flex-direction:column;align-items:center;gap:6px;}
+    .modal-flag{font-size:40px;}.modal-name{font-size:14px;font-weight:600;color:var(--gray-700);}
+    .modal-score-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:28px;}
+    .score-picker{display:flex;flex-direction:column;align-items:center;gap:8px;}
+    .score-picker button{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--gray-300);background:var(--white);font-size:20px;font-weight:700;color:var(--gray-700);display:flex;align-items:center;justify-content:center;}
+    .score-picker button:hover{background:var(--green-pale);border-color:var(--green-main);color:var(--green-mid);}
+    .score-display{width:64px;height:64px;border-radius:var(--r-md);background:var(--green-pale);border:2px solid var(--green-main);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:32px;font-weight:800;color:var(--green-mid);}
+    .modal-sep{font-size:24px;color:var(--gray-300);font-weight:700;}
+    .rank-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f0f0ec;}
+    .rank-num{width:26px;font-family:var(--font-display);font-size:15px;font-weight:800;color:var(--gray-400);text-align:center;}
+    .rank-num.gold{color:var(--gold);}.rank-num.silver{color:var(--gray-400);}.rank-num.bronze{color:#a0522d;}
+    .rank-name{flex:1;font-size:14px;font-weight:500;}
+    .rank-pts{font-family:var(--font-display);font-size:16px;font-weight:800;color:var(--green-main);}
+    .rank-pts span{font-size:11px;font-weight:400;color:var(--gray-400);}
+    .rank-item.me{background:var(--green-pale);border-radius:var(--r-md);padding:11px 10px;margin:0 -10px;border:none;}
+    .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 16px;}
+    .stat-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--r-md);padding:14px;}
+    .stat-val{font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--green-main);line-height:1;}
+    .stat-lbl{font-size:12px;color:var(--gray-500);margin-top:4px;}
+    .option-card{background:var(--white);border:1.5px solid var(--gray-300);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .15s;}
+    .option-card.selected{border-color:var(--green-main);background:var(--green-pale);}
+    .option-card .opt-title{font-size:15px;font-weight:600;margin-bottom:3px;}
+    .option-card.selected .opt-title{color:var(--green-mid);}
+    .option-card .opt-desc{font-size:13px;color:var(--gray-500);}
+    .opt-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+    .pts-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-200);font-size:14px;}
+    .pts-val{font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--green-main);}
+    .success-wrap{text-align:center;padding:24px 0 16px;}
+    .success-icon{width:70px;height:70px;background:var(--green-pale);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:32px;}
+    .invite-box{background:var(--green-dark);border-radius:var(--r-lg);padding:18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;}
+    .invite-label{font-size:11px;color:rgba(255,255,255,.55);margin-bottom:4px;}
+    .invite-code{font-family:var(--font-display);font-size:30px;font-weight:800;color:var(--gold);letter-spacing:6px;}
+    .copy-btn{background:var(--gold);color:var(--green-dark);border:none;border-radius:var(--r-sm);padding:9px 16px;font-size:13px;font-weight:800;cursor:pointer;}
+    .summary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--gray-200);font-size:14px;}
+    .join-code-input{width:100%;padding:14px;border:2px solid var(--green-main);border-radius:var(--r-md);font-family:var(--font-display);font-size:24px;font-weight:800;text-align:center;letter-spacing:6px;text-transform:uppercase;color:var(--green-mid);background:var(--white);outline:none;}
+    @media(min-width:480px){body{display:flex;align-items:flex-start;justify-content:center;background:#c8e6d4;padding:20px 0;}.screen{max-width:400px;width:100%;min-height:100vh;box-shadow:0 20px 60px rgba(0,0,0,.2);border-radius:24px;overflow:hidden;background:var(--off-white);}}
+  </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-txt" id="loading-txt">Cargando...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="s-login" class="screen active">
+  <div class="login-hero">
+    <img src="logo.png" alt="PollaFC" onerror="this.style.display='none'" />
+    <div class="brand">Polla<span>FC</span></div>
+    <div class="tagline">Mundial 2026 · USA · MEX · CAN</div>
+  </div>
+  <div class="login-body">
+    <h2>Bienvenido</h2>
+    <p class="sub">Entra y haz tus predicciones</p>
+    <div class="error-msg" id="login-error"></div>
+    <div class="field"><label>Correo electrónico</label><input type="email" id="login-email" placeholder="tu@correo.com" /></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="login-pass" placeholder="••••••••" /></div>
+    <button class="btn btn-primary" onclick="loginUser()">Entrar</button>
+    <p class="link-text">¿No tienes cuenta? <a href="#" onclick="goTo('s-register')">Registrarse gratis</a></p>
+  </div>
+</div>
+
+<!-- REGISTRO -->
+<div id="s-register" class="screen">
+  <header class="app-header">
+    <div class="header-left"><div class="logo-name">Polla<span>FC</span></div><div class="logo-sub">Crear cuenta</div></div>
+    <img class="header-logo" src="logo.png" alt="" onerror="this.style.display='none'" />
+  </header>
+  <div class="scroll-body">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <p style="font-family:var(--font-display);font-size:26px;font-weight:800;">Crear cuenta</p>
+      <span class="pill pill-green">Gratis</span>
+    </div>
+    <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px;">Sin tarjeta · Sin trampa</p>
+    <div class="steps" id="reg-steps"><div class="step-dot active"></div><div class="step-dot"></div></div>
+    <div class="error-msg" id="reg-error"></div>
+    <div id="reg-step1">
+      <div class="field"><label>Nombre completo</label><input type="text" id="reg-nombre" placeholder="Tu nombre real" /></div><div class="field"><label>Apodo / Nickname</label><input type="text" id="reg-apodo" placeholder="Ej: ElReyDelGol — así te verán los demás" /></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" id="reg-email" placeholder="tu@correo.com" /></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" placeholder="Mínimo 8 caracteres" /></div>
+      <div class="field"><label>País</label>
+        <select id="reg-pais"><option>🇨🇴 Colombia</option><option>🇲🇽 México</option><option>🇪🇸 España</option><option>🇦🇷 Argentina</option><option>🇨🇱 Chile</option><option>🇵🇪 Perú</option><option>🇻🇪 Venezuela</option><option>🇪🇨 Ecuador</option><option>🇺🇾 Uruguay</option><option>🇩🇪 Alemania</option><option>🇺🇸 Estados Unidos</option><option>Otro</option></select>
+      </div>
+      <button class="btn btn-primary" onclick="regNext()">Continuar →</button>
+      <p class="link-text">¿Ya tienes cuenta? <a href="#" onclick="goTo('s-login')">Entrar</a></p>
+    </div>
+    <div id="reg-step2" style="display:none;">
+      
+      <div class="field"><label>Color de avatar</label>
+        <div style="display:flex;gap:10px;margin-top:6px;">
+          <div class="avatar av-green" style="width:44px;height:44px;border:2.5px solid var(--green-main);cursor:pointer;" onclick="selAv(this,'green')" id="av-green">CR</div>
+          <div class="avatar av-blue"   style="width:44px;height:44px;border:2.5px solid transparent;cursor:pointer;" onclick="selAv(this,'blue')" id="av-blue">CR</div>
+          <div class="avatar av-coral"  style="width:44px;height:44px;border:2.5px solid transparent;cursor:pointer;" onclick="selAv(this,'coral')" id="av-coral">CR</div>
+          <div class="avatar av-purple" style="width:44px;height:44px;border:2.5px solid transparent;cursor:pointer;" onclick="selAv(this,'purple')" id="av-purple">CR</div>
+          <div class="avatar av-amber"  style="width:44px;height:44px;border:2.5px solid transparent;cursor:pointer;" onclick="selAv(this,'amber')" id="av-amber">CR</div>
+        </div>
+      </div>
+      <div class="field"><label>Equipo favorito (opcional)</label>
+        <select id="reg-equipo"><option value="">— Elige tu equipo —</option><option>🇨🇴 Colombia</option><option>🇦🇷 Argentina</option><option>🇧🇷 Brasil</option><option>🇪🇸 España</option><option>🇲🇽 México</option><option>🇩🇪 Alemania</option><option>🇫🇷 Francia</option><option>🇵🇹 Portugal</option></select>
+      </div>
+      <button class="btn btn-primary" onclick="registerUser()">Crear cuenta ⚽</button>
+      <button class="btn btn-ghost" onclick="regBack()">← Volver</button>
+    </div>
+  </div>
+</div>
+
+<!-- PARTIDOS -->
+<div id="s-partidos" class="screen">
+  <header class="app-header">
+    <div class="header-left"><div class="logo-name">Polla<span>FC</span></div><div class="logo-sub">Mundial 2026</div></div>
+    <img class="header-logo" src="logo.png" alt="" onerror="this.style.display='none'" />
+  </header>
+  <div class="scroll-body">
+    <div class="group-banner">
+      <div><div class="gname" id="grupo-nombre">Mi grupo</div><div class="gmeta" id="grupo-meta">Cargando...</div></div>
+      <span class="pill pill-live">En vivo</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <p class="progress-label" id="progress-label">0 de 0 partidos predichos</p>
+    <div id="partidos-lista"></div>
+  </div>
+  <nav class="bottom-nav">
+    <button class="active" onclick="navTo('s-partidos',this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>Partidos</button>
+    <button onclick="navTo('s-ranking',this);loadRanking()"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ranking</button>
+    <button onclick="navTo('s-mipolla',this);loadMiPolla()"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Mi polla</button>
+    <button onclick="navTo('s-crear',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Nueva</button>
+  </nav>
+</div>
+
+<!-- SCORE MODAL -->
+<div class="modal-overlay" id="score-modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-title">Tu predicción</div>
+    <div class="modal-teams">
+      <div class="modal-team"><div class="modal-flag" id="m-flag1">🏠</div><div class="modal-name" id="m-name1">Local</div></div>
+      <div style="font-size:18px;color:var(--gray-300);">vs</div>
+      <div class="modal-team"><div class="modal-flag" id="m-flag2">✈️</div><div class="modal-name" id="m-name2">Visitante</div></div>
+    </div>
+    <div class="modal-score-row">
+      <div class="score-picker"><button onclick="chScore('h',1)">▲</button><div class="score-display" id="m-sh">0</div><button onclick="chScore('h',-1)">▼</button></div>
+      <div class="modal-sep">—</div>
+      <div class="score-picker"><button onclick="chScore('a',1)">▲</button><div class="score-display" id="m-sa">0</div><button onclick="chScore('a',-1)">▼</button></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveScore()">Guardar predicción</button>
+    <button class="btn btn-ghost" style="margin-top:10px;" onclick="closeModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- RANKING -->
+<div id="s-ranking" class="screen">
+  <header class="app-header">
+    <div class="header-left"><div class="logo-name">Polla<span>FC</span></div><div class="logo-sub">Ranking</div></div>
+    <img class="header-logo" src="logo.png" alt="" onerror="this.style.display='none'" />
+  </header>
+  <div class="scroll-body">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="font-size:15px;font-weight:700;" id="ranking-grupo-nombre">Mi grupo</span>
+      <span class="pill pill-live">En vivo</span>
+    </div>
+    <div id="ranking-lista"><p style="color:var(--gray-400);text-align:center;padding:20px;">Cargando ranking...</p></div>
+    <button class="btn btn-outline" style="margin-top:20px;" onclick="shareWA('ranking')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      Compartir por WhatsApp
+    </button>
+  </div>
+  <nav class="bottom-nav">
+    <button onclick="navTo('s-partidos',this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>Partidos</button>
+    <button class="active" onclick="navTo('s-ranking',this)"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ranking</button>
+    <button onclick="navTo('s-mipolla',this);loadMiPolla()"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Mi polla</button>
+    <button onclick="navTo('s-crear',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Nueva</button>
+  </nav>
+</div>
+
+<!-- MI POLLA -->
+<div id="s-mipolla" class="screen">
+  <header class="app-header">
+    <div class="header-left"><div class="logo-name">Polla<span>FC</span></div><div class="logo-sub">Mi polla</div></div>
+    <img class="header-logo" src="logo.png" alt="" onerror="this.style.display='none'" />
+  </header>
+  <div class="scroll-body">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div class="avatar av-green" style="width:52px;height:52px;font-size:16px;" id="perfil-avatar">?</div>
+      <div><div style="font-size:17px;font-weight:700;" id="perfil-nombre">Cargando...</div><div style="font-size:13px;color:var(--gray-500);" id="perfil-grupo">—</div></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-val" id="stat-pts">0</div><div class="stat-lbl">Puntos totales</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-pos">#—</div><div class="stat-lbl">Posición actual</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-exactos">0</div><div class="stat-lbl">Exactos</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-pct">0%</div><div class="stat-lbl">% de acierto</div></div>
+    </div>
+    <div class="slabel">Mis grupos</div>
+    <div id="mis-grupos-lista"></div>
+    <button class="btn btn-outline" style="margin-top:4px;" onclick="shareWA('ranking')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      Compartir por WhatsApp
+    </button>
+    <button class="btn btn-ghost" onclick="logoutUser()" style="margin-top:8px;">Cerrar sesión</button>
+  </div>
+  <nav class="bottom-nav">
+    <button onclick="navTo('s-partidos',this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>Partidos</button>
+    <button onclick="navTo('s-ranking',this);loadRanking()"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ranking</button>
+    <button class="active" onclick="navTo('s-mipolla',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Mi polla</button>
+    <button onclick="navTo('s-crear',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Nueva</button>
+  </nav>
+</div>
+
+<!-- CREAR / UNIRSE -->
+<div id="s-crear" class="screen">
+  <header class="app-header">
+    <div class="header-left"><div class="logo-name">Polla<span>FC</span></div><div class="logo-sub">Nueva polla</div></div>
+    <img class="header-logo" src="logo.png" alt="" onerror="this.style.display='none'" />
+  </header>
+  <div class="scroll-body">
+    <div style="display:flex;border-bottom:1px solid var(--gray-200);margin-bottom:20px;">
+      <button id="tab-crear" onclick="switchTab('crear')" style="flex:1;padding:12px;background:none;border:none;border-bottom:2px solid var(--green-main);font-size:14px;font-weight:600;color:var(--green-main);cursor:pointer;">Crear polla</button>
+      <button id="tab-unirse" onclick="switchTab('unirse')" style="flex:1;padding:12px;background:none;border:none;border-bottom:2px solid transparent;font-size:14px;font-weight:600;color:var(--gray-400);cursor:pointer;">Unirme</button>
+    </div>
+    <div id="panel-crear">
+      <div class="steps" id="crear-steps"><div class="step-dot active"></div><div class="step-dot"></div></div>
+      <div class="error-msg" id="crear-error"></div>
+      <div id="crear-step1">
+        <div class="field"><label>Nombre de la polla</label><input type="text" id="polla-nombre" placeholder="Ej: Los Cracks del Trabajo" /></div>
+        <div class="field"><label>Torneo</label><select id="polla-torneo"><option>⚽ Mundial 2026</option><option>🏆 Champions League</option><option>🌎 Copa América</option></select></div>
+        <div class="slabel" style="margin-top:4px;">Tipo</div>
+        <div class="option-card selected" onclick="selOpt(this)"><div class="opt-head"><div class="opt-title">Resultado exacto</div><span class="pill pill-green">Popular</span></div><div class="opt-desc">3 pts exacto · 1 pt ganador correcto</div></div>
+        <div class="option-card" onclick="selOpt(this)"><div class="opt-title">Solo el campeón</div><div class="opt-desc">Cada jugador elige quién gana</div></div>
+        <button class="btn btn-primary" style="margin-top:6px;" onclick="crearNext()">Continuar →</button>
+        <button class="btn btn-ghost" onclick="navTo('s-partidos',null)">Cancelar</button>
+      </div>
+      <div id="crear-step2" style="display:none;">
+        <div class="slabel" style="margin-top:0;">Puntuación</div>
+        <div class="pts-row"><span>Resultado exacto</span><span class="pts-val">3 pts</span></div>
+        <div class="pts-row"><span>Ganador correcto</span><span class="pts-val">1 pt</span></div>
+        <div class="pts-row" style="border:none;"><span>Fallo total</span><span style="color:var(--gray-400);font-weight:600;">0 pts</span></div>
+        <div class="slabel">Bonus</div>
+        <div class="toggle-row"><div><div class="toggle-label">Bonus campeón</div><div class="toggle-sub">+20 pts si aciertas el ganador</div></div><div class="toggle" id="toggle-campeon" onclick="this.classList.toggle('off')"></div></div>
+        <div class="toggle-row" style="border:none;margin-bottom:20px;"><div><div class="toggle-label">Cuota de entrada</div><div class="toggle-sub">Registrar pagos</div></div><div class="toggle off" onclick="this.classList.toggle('off')"></div></div>
+        <button class="btn btn-primary" onclick="crearPolla()">Crear polla ⚽</button>
+        <button class="btn btn-ghost" onclick="crearBack()">← Volver</button>
+      </div>
+    </div>
+    <div id="panel-unirse" style="display:none;">
+      <div style="background:var(--green-pale);border-radius:var(--r-lg);padding:20px;text-align:center;margin-bottom:20px;">
+        <p style="font-size:14px;color:var(--green-mid);font-weight:600;margin-bottom:12px;">Introduce el código de invitación</p>
+        <input class="join-code-input" id="join-codigo" placeholder="FC-XXXX" maxlength="7" oninput="this.value=this.value.toUpperCase()" />
+      </div>
+      <div class="error-msg" id="join-error"></div>
+      <button class="btn btn-primary" onclick="unirsePolla()">Unirme al grupo →</button>
+      <button class="btn btn-ghost" onclick="navTo('s-partidos',null)">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- POLLA CREADA -->
+<div id="s-creada" class="screen">
+  <header class="app-header">
+    <div class="header-left"><div class="logo-name">Polla<span>FC</span></div><div class="logo-sub">¡Lista!</div></div>
+    <img class="header-logo" src="logo.png" alt="" onerror="this.style.display='none'" />
+  </header>
+  <div class="scroll-body">
+    <div class="success-wrap">
+      <div class="success-icon">🏆</div>
+      <div style="font-family:var(--font-display);font-size:28px;font-weight:800;margin-bottom:6px;">¡Polla creada!</div>
+      <p style="font-size:14px;color:var(--gray-500);">Comparte el código con tus amigos</p>
+    </div>
+    <div class="invite-box">
+      <div><div class="invite-label">Código de invitación</div><div class="invite-code" id="invite-code">FC-XXXX</div></div>
+      <button class="copy-btn" onclick="copyCode()">Copiar</button>
+    </div>
+    <button class="btn btn-outline" onclick="shareWA('invite')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      Compartir por WhatsApp
+    </button>
+    <div class="slabel">Resumen</div>
+    <div class="card">
+      <div class="summary-row"><span style="color:var(--gray-500);">Nombre</span><span style="font-weight:600;" id="sum-nombre">—</span></div>
+      <div class="summary-row" style="border:none;"><span style="color:var(--gray-500);">Jugadores</span><span style="font-weight:600;">Solo tú (por ahora)</span></div>
+    </div>
+    <button class="btn btn-primary" onclick="navTo('s-partidos',null);loadPartidos()">Ir a mi polla →</button>
+  </div>
+</div>
+
+<script>
+const{createClient}=supabase;
+const sb=createClient('https://pgaoiyypqdwcmmnyvumo.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnYW9peXlwcWR3Y21tbnl2dW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTE3MDUsImV4cCI6MjA5MDI4NzcwNX0.LDWMwWXE1nOxlNHyxxwnqWewC5JCXnsqFR6W8XFCVa0');
+
+let currentUser=null,currentPerfil=null,currentGrupo=null,currentPartidoId=null,scoreH=0,scoreA=0,selectedAvatar='green';
+
+function loading(show,txt='Cargando...'){document.getElementById('loading').classList.toggle('show',show);document.getElementById('loading-txt').textContent=txt;}
+function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),4000);}
+function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+function navTo(id,btn){goTo(id);if(btn){btn.closest('.bottom-nav').querySelectorAll('button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}}
+function initials(n){return(n||'?').split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase();}
+
+async function loginUser(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  if(!email||!pass)return showError('login-error','Completa todos los campos');
+  loading(true,'Entrando...');
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  loading(false);
+  if(error)return showError('login-error','Email o contraseña incorrectos');
+  currentUser=data.user;
+  await afterLogin();
+}
+
+async function registerUser(){
+  const nombre=document.getElementById('reg-nombre').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const apodo=document.getElementById('reg-apodo').value.trim()||nombre;
+  const pais=document.getElementById('reg-pais').value;
+  const equipo=document.getElementById('reg-equipo').value;
+  if(!nombre||!email||!pass)return showError('reg-error','Completa todos los campos');
+  if(pass.length<8)return showError('reg-error','La contraseña debe tener al menos 8 caracteres');
+  loading(true,'Creando cuenta...');
+  const{data,error}=await sb.auth.signUp({email,password:pass,options:{data:{nombre,nombre_polla:apodo}}});
+  if(error){loading(false);return showError('reg-error',error.message);}
+  if(data.user){
+    await sb.from('perfiles').upsert({id:data.user.id,nombre,nombre_polla:apodo,pais,equipo_favorito:equipo,avatar_color:selectedAvatar});
+    currentUser=data.user;
+  }
+  loading(false);
+  await afterLogin();
+}
+
+async function afterLogin(){
+  loading(true,'Cargando tu perfil...');
+  const{data:perfil}=await sb.from('perfiles').select('*').eq('id',currentUser.id).single();
+  currentPerfil=perfil;
+  const{data:miembros}=await sb.from('miembros').select('*,grupos(*)').eq('perfil_id',currentUser.id).limit(1);
+  if(miembros&&miembros.length>0)currentGrupo=miembros[0].grupos;
+  loading(false);
+  await loadPartidos();
+  goTo('s-partidos');
+}
+
+async function logoutUser(){
+  await sb.auth.signOut();
+  currentUser=null;currentPerfil=null;currentGrupo=null;
+  goTo('s-login');
+}
+
+async function loadPartidos(){
+  const lista=document.getElementById('partidos-lista');
+  if(!currentUser)return;
+  if(currentGrupo){
+    document.getElementById('grupo-nombre').textContent=currentGrupo.nombre;
+    const{count}=await sb.from('miembros').select('*',{count:'exact'}).eq('grupo_id',currentGrupo.id);
+    document.getElementById('grupo-meta').textContent=`${count} jugadores`;
+  }else{
+    document.getElementById('grupo-nombre').textContent='Sin grupo';
+    document.getElementById('grupo-meta').textContent='Crea o únete a una polla';
+  }
+  const{data:partidos}=await sb.from('partidos').select('*').order('fecha').order('hora');
+  if(!partidos||partidos.length===0){lista.innerHTML='<p style="color:var(--gray-400);text-align:center;padding:30px;">No hay partidos cargados aún</p>';return;}
+  let predsMap={};
+  if(currentGrupo){
+    const{data:preds}=await sb.from('predicciones').select('*').eq('perfil_id',currentUser.id).eq('grupo_id',currentGrupo.id);
+    (preds||[]).forEach(p=>predsMap[p.partido_id]=p);
+  }
+  const total=partidos.length;
+  const predichos=Object.keys(predsMap).length;
+  document.getElementById('progress-fill').style.width=`${Math.round(100*predichos/total)}%`;
+  document.getElementById('progress-label').textContent=`${predichos} de ${total} partidos predichos`;
+  const grupos={};
+  partidos.forEach(p=>{const k=p.jornada||'General';if(!grupos[k])grupos[k]=[];grupos[k].push(p);});
+  let html='';
+  for(const[jornada,pts]of Object.entries(grupos)){
+    html+=`<div class="slabel">${jornada}</div>`;
+    pts.forEach(p=>{
+      const pred=predsMap[p.id];
+      const filled=!!pred;
+      const hl=filled?pred.goles_local:'?';
+      const ha=filled?pred.goles_visitante:'?';
+      const bc=filled?'filled':'empty';
+      const pill=filled?`<span class="pill pill-green">Predicción lista</span>`:`<span class="pill pill-gray">Sin predicción</span>`;
+      html+=`<div class="match-card" data-id="${p.id}">
+        <div class="match-teams">
+          <div class="team"><div class="team-flag">${p.flag_local||'⚽'}</div><div class="team-name">${p.equipo_local}</div></div>
+          <div class="score-wrap">
+            <div class="score-box ${bc}" onclick="openPicker('${p.id}','${p.flag_local}','${p.equipo_local}','${p.flag_visitante}','${p.equipo_visitante}',${filled?pred.goles_local:0},${filled?pred.goles_visitante:0})">${hl}</div>
+            <div class="score-sep">—</div>
+            <div class="score-box ${bc}" onclick="openPicker('${p.id}','${p.flag_local}','${p.equipo_local}','${p.flag_visitante}','${p.equipo_visitante}',${filled?pred.goles_local:0},${filled?pred.goles_visitante:0})">${ha}</div>
+          </div>
+          <div class="team"><div class="team-flag">${p.flag_visitante||'⚽'}</div><div class="team-name">${p.equipo_visitante}</div></div>
+        </div>
+        <div class="match-footer"><span class="match-time">${p.estadio||''} · ${p.hora||''}</span>${pill}</div>
+      </div>`;
+    });
+  }
+  lista.innerHTML=html;
+}
+
+function openPicker(id,f1,n1,f2,n2,h,a){
+  currentPartidoId=id;scoreH=h;scoreA=a;
+  document.getElementById('m-flag1').textContent=f1;document.getElementById('m-name1').textContent=n1;
+  document.getElementById('m-flag2').textContent=f2;document.getElementById('m-name2').textContent=n2;
+  document.getElementById('m-sh').textContent=h;document.getElementById('m-sa').textContent=a;
+  document.getElementById('score-modal').classList.add('open');
+}
+function chScore(side,d){
+  if(side==='h'){scoreH=Math.max(0,Math.min(20,scoreH+d));document.getElementById('m-sh').textContent=scoreH;}
+  else{scoreA=Math.max(0,Math.min(20,scoreA+d));document.getElementById('m-sa').textContent=scoreA;}
+}
+async function saveScore(){
+  if(!currentUser||!currentGrupo||!currentPartidoId){closeModal();return showError('login-error','Necesitas estar en un grupo para predecir');}
+  loading(true,'Guardando...');
+  await sb.from('predicciones').upsert({perfil_id:currentUser.id,grupo_id:currentGrupo.id,partido_id:currentPartidoId,goles_local:scoreH,goles_visitante:scoreA},{onConflict:'perfil_id,grupo_id,partido_id'});
+  loading(false);closeModal();await loadPartidos();
+}
+function closeModal(e){if(!e||e.target===document.getElementById('score-modal'))document.getElementById('score-modal').classList.remove('open');}
+
+async function loadRanking(){
+  const lista=document.getElementById('ranking-lista');
+  if(!currentGrupo){lista.innerHTML='<p style="color:var(--gray-400);text-align:center;padding:20px;">Únete a un grupo para ver el ranking</p>';return;}
+  document.getElementById('ranking-grupo-nombre').textContent=currentGrupo.nombre;
+  const{data}=await sb.from('miembros').select('puntos,perfiles(nombre_polla,avatar_color)').eq('grupo_id',currentGrupo.id).order('puntos',{ascending:false});
+  if(!data||data.length===0){lista.innerHTML='<p style="color:var(--gray-400);text-align:center;padding:20px;">Aún no hay jugadores</p>';return;}
+  const medals=['gold','silver','bronze'];
+  lista.innerHTML=data.map((m,i)=>{
+    const esYo=m.perfiles?.nombre_polla===currentPerfil?.nombre_polla;
+    const ini=initials(m.perfiles?.nombre_polla||'?');
+    return`<div class="rank-item ${esYo?'me':''}">
+      <div class="rank-num ${medals[i]||''}">${i+1}</div>
+      <div class="avatar av-${m.perfiles?.avatar_color||'green'}">${ini}</div>
+      <div class="rank-name">${m.perfiles?.nombre_polla||'Jugador'}${esYo?' (tú)':''}</div>
+      <div class="rank-pts">${m.puntos} <span>pts</span></div>
+    </div>`;
+  }).join('');
+}
+
+async function loadMiPolla(){
+  if(!currentPerfil)return;
+  const ini=initials(currentPerfil.nombre_polla||currentPerfil.nombre);
+  const av=document.getElementById('perfil-avatar');
+  av.textContent=ini;av.className=`avatar av-${currentPerfil.avatar_color||'green'}`;av.style.cssText='width:52px;height:52px;font-size:16px;';
+  document.getElementById('perfil-nombre').textContent=currentPerfil.nombre;
+  if(currentGrupo){
+    const{data:mb}=await sb.from('miembros').select('puntos').eq('perfil_id',currentUser.id).eq('grupo_id',currentGrupo.id).single();
+    const pts=mb?.puntos||0;
+    document.getElementById('stat-pts').textContent=pts;
+    const{data:todos}=await sb.from('miembros').select('puntos').eq('grupo_id',currentGrupo.id).order('puntos',{ascending:false});
+    const pos=(todos||[]).findIndex(m=>m.puntos===pts)+1;
+    document.getElementById('stat-pos').textContent=`#${pos}`;
+    document.getElementById('perfil-grupo').textContent=`${currentGrupo.nombre} · Posición #${pos}`;
+    const{data:preds}=await sb.from('predicciones').select('puntos_obtenidos').eq('perfil_id',currentUser.id).eq('grupo_id',currentGrupo.id);
+    const exactos=(preds||[]).filter(p=>p.puntos_obtenidos===3).length;
+    const total=(preds||[]).length;
+    document.getElementById('stat-exactos').textContent=exactos;
+    document.getElementById('stat-pct').textContent=total>0?`${Math.round(100*exactos/total)}%`:'0%';
+  }
+  const{data:misGrupos}=await sb.from('miembros').select('puntos,grupos(nombre,codigo)').eq('perfil_id',currentUser.id);
+  const lista=document.getElementById('mis-grupos-lista');
+  lista.innerHTML=(!misGrupos||misGrupos.length===0)
+    ?'<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">No estás en ningún grupo aún</p>'
+    :misGrupos.map(m=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:14px;font-weight:700;">${m.grupos.nombre}</div><div style="font-size:12px;color:var(--gray-500);">Código: ${m.grupos.codigo} · ${m.puntos} pts</div></div><span class="pill pill-green">Activo</span></div>`).join('');
+}
+
+function selOpt(el){el.closest('.scroll-body').querySelectorAll('.option-card').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');}
+function crearNext(){
+  const n=document.getElementById('polla-nombre').value.trim();
+  if(!n)return showError('crear-error','Ponle un nombre a tu polla');
+  document.getElementById('crear-step1').style.display='none';document.getElementById('crear-step2').style.display='block';
+  const d=document.querySelectorAll('#crear-steps .step-dot');d[0].className='step-dot done';d[1].className='step-dot active';
+}
+function crearBack(){
+  document.getElementById('crear-step2').style.display='none';document.getElementById('crear-step1').style.display='block';
+  const d=document.querySelectorAll('#crear-steps .step-dot');d[0].className='step-dot active';d[1].className='step-dot';
+}
+async function crearPolla(){
+  const nombre=document.getElementById('polla-nombre').value.trim();
+  const bonus=!document.getElementById('toggle-campeon').classList.contains('off');
+  const codigo='FC-'+Math.random().toString(36).substring(2,6).toUpperCase();
+  loading(true,'Creando polla...');
+  const{data:grupo,error}=await sb.from('grupos').insert({nombre,codigo,tipo:'exacto',bonus_campeon:bonus,creador_id:currentUser.id}).select().single();
+  if(error){loading(false);return showError('crear-error','Error al crear la polla');}
+  await sb.from('miembros').insert({grupo_id:grupo.id,perfil_id:currentUser.id,puntos:0});
+  currentGrupo=grupo;
+  document.getElementById('invite-code').textContent=codigo;
+  document.getElementById('sum-nombre').textContent=nombre;
+  loading(false);goTo('s-creada');
+}
+async function unirsePolla(){
+  const codigo=document.getElementById('join-codigo').value.trim().toUpperCase();
+  if(!codigo)return showError('join-error','Introduce el código de invitación');
+  loading(true,'Buscando grupo...');
+  const{data:grupo,error}=await sb.from('grupos').select('*').eq('codigo',codigo).single();
+  if(error||!grupo){loading(false);return showError('join-error','Código no encontrado');}
+  const{error:e2}=await sb.from('miembros').insert({grupo_id:grupo.id,perfil_id:currentUser.id,puntos:0});
+  if(e2){loading(false);return showError('join-error','Ya eres miembro de este grupo');}
+  currentGrupo=grupo;
+  document.getElementById('invite-code').textContent=codigo;
+  document.getElementById('sum-nombre').textContent=grupo.nombre;
+  loading(false);goTo('s-creada');
+}
+function switchTab(tab){
+  const esCr=tab==='crear';
+  document.getElementById('panel-crear').style.display=esCr?'block':'none';
+  document.getElementById('panel-unirse').style.display=esCr?'none':'block';
+  document.getElementById('tab-crear').style.cssText=`flex:1;padding:12px;background:none;border:none;border-bottom:2px solid ${esCr?'var(--green-main)':'transparent'};font-size:14px;font-weight:600;color:${esCr?'var(--green-main)':'var(--gray-400)'};cursor:pointer;`;
+  document.getElementById('tab-unirse').style.cssText=`flex:1;padding:12px;background:none;border:none;border-bottom:2px solid ${esCr?'transparent':'var(--green-main)'};font-size:14px;font-weight:600;color:${esCr?'var(--gray-400)':'var(--green-main)'};cursor:pointer;`;
+}
+function regNext(){
+  const n=document.getElementById('reg-nombre').value.trim();
+  const e=document.getElementById('reg-email').value.trim();
+  const p=document.getElementById('reg-pass').value;
+  if(!n||!e||!p)return showError('reg-error','Completa todos los campos');
+  document.getElementById('reg-step1').style.display='none';document.getElementById('reg-step2').style.display='block';
+  const d=document.querySelectorAll('#reg-steps .step-dot');d[0].className='step-dot done';d[1].className='step-dot active';
+  const ini=initials(n);document.querySelectorAll('[id^="av-"]').forEach(a=>a.textContent=ini);
+}
+function regBack(){document.getElementById('reg-step2').style.display='none';document.getElementById('reg-step1').style.display='block';}
+function selAv(el,color){selectedAvatar=color;document.querySelectorAll('.avatar[id^="av-"]').forEach(a=>a.style.borderColor='transparent');el.style.borderColor='var(--green-main)';}
+function shareWA(tipo){
+  const code=document.getElementById('invite-code')?.textContent||currentGrupo?.codigo||'FC-XXXX';
+  const msg=tipo==='invite'?`🏆 ¡Únete a mi polla del Mundial 2026!\nGrupo: ${currentGrupo?.nombre||''}\nCódigo: ${code}\nPollaFC ⚽`:`🏆 PollaFC · Mundial 2026\n📊 Mi ranking en "${currentGrupo?.nombre||'mi grupo'}"\n¿Te atreves? Código: ${code}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+function copyCode(){
+  const code=document.getElementById('invite-code').textContent;
+  navigator.clipboard.writeText(code).then(()=>{const btn=document.querySelector('.copy-btn');btn.textContent='✓ Copiado';setTimeout(()=>btn.textContent='Copiar',2000);});
+}
+(async()=>{
+  loading(true,'Iniciando...');
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){currentUser=session.user;await afterLogin();}
+  loading(false);
+})();
+</script>
+</body>
+</html>
