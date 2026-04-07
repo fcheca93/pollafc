@@ -37,6 +37,15 @@ After deploy, call:
 
 If the output looks good, run again without `dryRun=true`.
 
+The endpoint now checks these provider buckets:
+
+- `scheduled`
+- `upcoming`
+- `inprogress`
+- `finished`
+
+That means you can link your local `partidos` rows to SportSRC before kickoff, not only once matches are live.
+
 ## 5. What the sync updates
 
 The endpoint updates these fields in `partidos`:
@@ -50,6 +59,13 @@ The endpoint updates these fields in `partidos`:
 - `inicia_en_utc`
 - `resultado_actualizado_en`
 
+In the response JSON, check these fields first:
+
+- `providerMatchesSeen`
+- `providerMatchesByStatus`
+- `updated`
+- `unmatched`
+
 ## 6. Frontend behavior
 
 The app now shows:
@@ -58,4 +74,3 @@ The app now shows:
 - `Final X-Y` when `estado = finalizado`
 
 If there is no real score yet, it keeps showing the prediction pill as before.
-

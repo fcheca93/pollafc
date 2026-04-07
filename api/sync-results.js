@@ -3,6 +3,7 @@ const { getPollingPlan } = require("../results-sync-strategy.js");
 const SPORTSRC_BASE_URL = "https://api.sportsrc.org/v2/";
 const DEFAULT_PROVIDER = "sportsrc";
 const DEFAULT_TIMEZONE = "UTC";
+const PROVIDER_STATUS_BUCKETS = ["scheduled", "upcoming", "inprogress", "finished"];
 
 function json(res, status, payload) {
   res.statusCode = status;
@@ -29,6 +30,16 @@ function normalizeText(value) {
 function normalizeDate(dateValue) {
   if (!dateValue) return new Date().toISOString().slice(0, 10);
   return String(dateValue).slice(0, 10);
+}
+
+function uniqueBy(items, getKey) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = getKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function scoreValue(...candidates) {
@@ -250,13 +261,16 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const [inProgressMatches, finishedMatches, localMatches] = await Promise.all([
-      fetchSportSrcMatches(date, "inprogress", sportSrcApiKey),
-      fetchSportSrcMatches(date, "finished", sportSrcApiKey),
-      fetchSupabasePartidos(supabaseUrl, supabaseServiceRoleKey, date)
-    ]);
+    const providerResponses = await Promise.all(PROVIDER_STATUS_BUCKETS.map((status) => fetchSportSrcMatches(date, status, sportSrcApiKey)));
+    const localMatches = await fetchSupabasePartidos(supabaseUrl, supabaseServiceRoleKey, date);
 
-    const providerMatches = [...inProgressMatches, ...finishedMatches].map(extractProviderMatch);
+    const providerMatches = uniqueBy(
+      providerResponses
+        .flat()
+        .map(extractProviderMatch)
+        .filter((match) => match.equipo_local && match.equipo_visitante),
+      (match) => `${match.provider_match_id}|${match.fecha}|${match.equipo_local}|${match.equipo_visitante}`
+    );
     const updates = [];
     const unmatched = [];
 
@@ -267,7 +281,8 @@ module.exports = async (req, res) => {
           fecha: providerMatch.fecha,
           equipo_local: providerMatch.equipo_local,
           equipo_visitante: providerMatch.equipo_visitante,
-          provider_match_id: providerMatch.provider_match_id
+          provider_match_id: providerMatch.provider_match_id,
+          estado: providerMatch.estado
         });
         continue;
       }
@@ -291,13 +306,20 @@ module.exports = async (req, res) => {
       }
     }
 
+    const providerMatchesByStatus = providerMatches.reduce((acc, match) => {
+      acc[match.estado] = (acc[match.estado] || 0) + 1;
+      return acc;
+    }, {});
+
     return json(res, 200, {
       ok: true,
       date,
       dryRun,
       provider: DEFAULT_PROVIDER,
       plan,
+      providerStatusesQueried: PROVIDER_STATUS_BUCKETS,
       providerMatchesSeen: providerMatches.length,
+      providerMatchesByStatus,
       localMatchesSeen: localMatches.length,
       updated: updates.length,
       unmatched: unmatched.length,
@@ -312,4 +334,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-
