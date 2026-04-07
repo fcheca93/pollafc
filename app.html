@@ -329,7 +329,7 @@
       <div class="error-msg" id="crear-error"></div>
       <div id="crear-step1">
         <div class="field"><label>Nombre de la polla</label><input type="text" id="polla-nombre" placeholder="Ej: Los Cracks del Trabajo" /></div>
-        <div class="field"><label>Torneo</label><select id="polla-torneo"><option>⚽ Mundial 2026</option><option>🏆 Champions League</option><option>🌎 Copa América</option></select></div>
+        <div class="field"><label>Torneo</label><select id="polla-torneo"><option value="world_cup_2026">⚽ Mundial 2026</option><option value="champions_league">🏆 Champions League</option></select></div>
         <div class="slabel" style="margin-top:4px;">Tipo</div>
         <div class="option-card selected" onclick="selOpt(this)"><div class="opt-head"><div class="opt-title">Resultado exacto</div><span class="pill pill-green">Popular</span></div><div class="opt-desc">3 pts exacto · 1 pt ganador correcto</div></div>
         <div class="option-card" onclick="selOpt(this)"><div class="opt-title">Solo el campeón</div><div class="opt-desc">Cada jugador elige quién gana</div></div>
@@ -383,6 +383,7 @@
     <div class="slabel">Resumen</div>
     <div class="card">
       <div class="summary-row"><span style="color:var(--gray-500);">Nombre</span><span style="font-weight:600;" id="sum-nombre">—</span></div>
+      <div class="summary-row"><span style="color:var(--gray-500);">Torneo</span><span style="font-weight:600;" id="sum-torneo">—</span></div>
       <div class="summary-row" style="border:none;"><span style="color:var(--gray-500);">Jugadores</span><span style="font-weight:600;">Solo tú (por ahora)</span></div>
     </div>
     <button class="btn btn-primary" onclick="navTo('s-partidos',null);loadPartidos()">Ir a mi polla →</button>
@@ -394,6 +395,21 @@ const{createClient}=supabase;
 const sb=createClient('https://pgaoiyypqdwcmmnyvumo.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnYW9peXlwcWR3Y21tbnl2dW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTE3MDUsImV4cCI6MjA5MDI4NzcwNX0.LDWMwWXE1nOxlNHyxxwnqWewC5JCXnsqFR6W8XFCVa0');
 
 let currentUser=null,currentPerfil=null,currentGrupo=null,currentPartidoId=null,scoreH=0,scoreA=0,selectedAvatar='green';
+const TORNEO_LABELS={world_cup_2026:'Mundial 2026',champions_league:'Champions League'};
+
+function normalizeTournamentValue(value){
+  if(!value)return 'world_cup_2026';
+  const normalized=String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(normalized.includes('champions'))return 'champions_league';
+  if(normalized.includes('world_cup_2026'))return 'world_cup_2026';
+  if(normalized.includes('mundial'))return 'world_cup_2026';
+  return value;
+}
+
+function getTournamentLabel(value){
+  const key=normalizeTournamentValue(value);
+  return TORNEO_LABELS[key]||value||TORNEO_LABELS.world_cup_2026;
+}
 
 function loading(show,txt='Cargando...'){document.getElementById('loading').classList.toggle('show',show);document.getElementById('loading-txt').textContent=txt;}
 function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),4000);}
@@ -469,15 +485,21 @@ function getEstadoPill(partido){
 async function loadPartidos(){
   const lista=document.getElementById('partidos-lista');
   if(!currentUser)return;
+  const torneoActual=normalizeTournamentValue(currentGrupo?.torneo);
   if(currentGrupo){
     document.getElementById('grupo-nombre').textContent=currentGrupo.nombre;
     const{count}=await sb.from('miembros').select('*',{count:'exact'}).eq('grupo_id',currentGrupo.id);
-    document.getElementById('grupo-meta').textContent=`${count} jugadores`;
+    document.getElementById('grupo-meta').textContent=`${count} jugadores · ${getTournamentLabel(torneoActual)}`;
   }else{
     document.getElementById('grupo-nombre').textContent='Sin grupo';
     document.getElementById('grupo-meta').textContent='Crea o únete a una polla';
   }
-  const{data:partidos}=await sb.from('partidos').select('*').order('fecha').order('hora');
+  let partidosQuery=sb.from('partidos').select('*').order('fecha').order('hora');
+  if(currentGrupo){
+    if(torneoActual==='champions_league')partidosQuery=partidosQuery.eq('torneo','champions_league');
+    else partidosQuery=partidosQuery.or('torneo.eq.world_cup_2026,torneo.is.null');
+  }
+  const{data:partidos}=await partidosQuery;
   if(!partidos||partidos.length===0){lista.innerHTML='<p style="color:var(--gray-400);text-align:center;padding:30px;">No hay partidos cargados aún</p>';return;}
   let predsMap={};
   if(currentGrupo){
@@ -576,11 +598,11 @@ async function loadMiPolla(){
     document.getElementById('stat-exactos').textContent=exactos;
     document.getElementById('stat-pct').textContent=total>0?`${Math.round(100*exactos/total)}%`:'0%';
   }
-  const{data:misGrupos}=await sb.from('miembros').select('puntos,grupos(nombre,codigo)').eq('perfil_id',currentUser.id);
+  const{data:misGrupos}=await sb.from('miembros').select('puntos,grupos(nombre,codigo,torneo)').eq('perfil_id',currentUser.id);
   const lista=document.getElementById('mis-grupos-lista');
   lista.innerHTML=(!misGrupos||misGrupos.length===0)
     ?'<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">No estás en ningún grupo aún</p>'
-    :misGrupos.map(m=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:14px;font-weight:700;">${m.grupos.nombre}</div><div style="font-size:12px;color:var(--gray-500);">Código: ${m.grupos.codigo} · ${m.puntos} pts</div></div><span class="pill pill-green">Activo</span></div>`).join('');
+    :misGrupos.map(m=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:14px;font-weight:700;">${m.grupos.nombre}</div><div style="font-size:12px;color:var(--gray-500);">${getTournamentLabel(m.grupos.torneo)} · Código: ${m.grupos.codigo} · ${m.puntos} pts</div></div><span class="pill pill-green">Activo</span></div>`).join('');
 }
 
 function selOpt(el){el.closest('.scroll-body').querySelectorAll('.option-card').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');}
@@ -596,15 +618,17 @@ function crearBack(){
 }
 async function crearPolla(){
   const nombre=document.getElementById('polla-nombre').value.trim();
+  const torneo=normalizeTournamentValue(document.getElementById('polla-torneo').value);
   const bonus=!document.getElementById('toggle-campeon').classList.contains('off');
   const codigo='FC-'+Math.random().toString(36).substring(2,6).toUpperCase();
   loading(true,'Creando polla...');
-  const{data:grupo,error}=await sb.from('grupos').insert({nombre,codigo,tipo:'exacto',bonus_campeon:bonus,creador_id:currentUser.id}).select().single();
+  const{data:grupo,error}=await sb.from('grupos').insert({nombre,codigo,torneo,tipo:'exacto',bonus_campeon:bonus,creador_id:currentUser.id}).select().single();
   if(error){loading(false);return showError('crear-error','Error al crear la polla');}
   await sb.from('miembros').insert({grupo_id:grupo.id,perfil_id:currentUser.id,puntos:0});
   currentGrupo=grupo;
   document.getElementById('invite-code').textContent=codigo;
   document.getElementById('sum-nombre').textContent=nombre;
+  document.getElementById('sum-torneo').textContent=getTournamentLabel(torneo);
   loading(false);goTo('s-creada');
 }
 async function unirsePolla(){
@@ -618,6 +642,7 @@ async function unirsePolla(){
   currentGrupo=grupo;
   document.getElementById('invite-code').textContent=codigo;
   document.getElementById('sum-nombre').textContent=grupo.nombre;
+  document.getElementById('sum-torneo').textContent=getTournamentLabel(grupo.torneo);
   loading(false);goTo('s-creada');
 }
 function switchTab(tab){
