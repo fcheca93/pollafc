@@ -1,0 +1,18 @@
+insert into public.partidos (
+  torneo,
+  jornada,
+  fecha,
+  hora,
+  estadio,
+  equipo_local,
+  flag_local,
+  equipo_visitante,
+  flag_visitante,
+  estado
+)
+values
+  ('champions_league', 'Cuartos de final', '2026-04-14', '21:00', 'Allianz Arena', 'Bayern Munich', '🇩🇪', 'Arsenal', '🏴', 'programado'),
+  ('champions_league', 'Cuartos de final', '2026-04-14', '21:00', 'Estadio Santiago Bernabeu', 'Real Madrid', '🇪🇸', 'Inter', '🇮🇹', 'programado'),
+  ('champions_league', 'Cuartos de final', '2026-04-15', '21:00', 'Parc des Princes', 'Paris Saint-Germain', '🇫🇷', 'Manchester City', '🏴', 'programado'),
+  ('champions_league', 'Cuartos de final', '2026-04-15', '21:00', 'Estadi Olimpic', 'Barcelona', '🇪🇸', 'Liverpool', '🏴', 'programado');
+
