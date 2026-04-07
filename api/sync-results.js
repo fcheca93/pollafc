@@ -241,6 +241,7 @@ module.exports = async (req, res) => {
   const date = normalizeDate((req.query && req.query.date) || getTodayInTimeZone(timeZone));
   const dailyBudget = Number(process.env.RESULTS_DAILY_BUDGET || 1000);
   const dryRun = String((req.query && req.query.dryRun) || "").toLowerCase() === "true";
+  const force = String((req.query && req.query.force) || "").toLowerCase() === "true";
 
   if (!supabaseUrl || !supabaseServiceRoleKey || !sportSrcApiKey) {
     return json(res, 500, {
@@ -250,7 +251,7 @@ module.exports = async (req, res) => {
   }
 
   const plan = getPollingPlan(date, dailyBudget);
-  if (!plan.shouldPoll) {
+  if (!plan.shouldPoll && !force) {
     return json(res, 200, {
       ok: true,
       date,
@@ -315,6 +316,7 @@ module.exports = async (req, res) => {
       ok: true,
       date,
       dryRun,
+      force,
       provider: DEFAULT_PROVIDER,
       plan,
       providerStatusesQueried: PROVIDER_STATUS_BUCKETS,

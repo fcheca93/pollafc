@@ -37,6 +37,12 @@ After deploy, call:
 
 If the output looks good, run again without `dryRun=true`.
 
+For testing outside World Cup dates, force the provider lookup with:
+
+```txt
+/api/sync-results?token=YOUR_TOKEN&date=2026-04-07&dryRun=true&force=true
+```
+
 The endpoint now checks these provider buckets:
 
 - `scheduled`
