@@ -43,6 +43,7 @@
     .pill-amber{background:var(--gold-pale);color:#7a4f00;}
     .pill-gray{background:var(--off-white);color:var(--gray-500);border:1px solid var(--gray-300);}
     .pill-live{background:var(--red);color:var(--white);animation:blink 2s infinite;}
+    .pill-final{background:#e6f1fb;color:#185fa5;}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.7}}
     .divider{display:flex;align-items:center;gap:10px;margin:16px 0;}
     .divider-line{flex:1;height:1px;background:var(--gray-300);}
@@ -449,6 +450,22 @@ async function logoutUser(){
   goTo('s-login');
 }
 
+function getResultadoTexto(partido){
+  const tieneMarcador=partido.goles_local_real!==null&&partido.goles_local_real!==undefined&&partido.goles_visitante_real!==null&&partido.goles_visitante_real!==undefined;
+  if(!tieneMarcador)return '';
+  const estado=(partido.estado||'').toLowerCase();
+  const prefijo=estado==='finalizado'?'Final':(estado==='en_juego'?'En juego':'Resultado');
+  return `${prefijo} ${partido.goles_local_real}-${partido.goles_visitante_real}`;
+}
+
+function getEstadoPill(partido){
+  const estado=(partido.estado||'').toLowerCase();
+  const resultadoTexto=getResultadoTexto(partido);
+  if(estado==='en_juego'&&resultadoTexto)return `<span class="pill pill-live">${resultadoTexto}</span>`;
+  if(estado==='finalizado'&&resultadoTexto)return `<span class="pill pill-final">${resultadoTexto}</span>`;
+  return '';
+}
+
 async function loadPartidos(){
   const lista=document.getElementById('partidos-lista');
   if(!currentUser)return;
@@ -482,6 +499,7 @@ async function loadPartidos(){
       const hl=filled?pred.goles_local:'?';
       const ha=filled?pred.goles_visitante:'?';
       const bc=filled?'filled':'empty';
+      const estadoPill=getEstadoPill(p);
       const pill=filled?`<span class="pill pill-green">Predicción lista</span>`:`<span class="pill pill-gray">Sin predicción</span>`;
       html+=`<div class="match-card" data-id="${p.id}">
         <div class="match-teams">
@@ -493,7 +511,7 @@ async function loadPartidos(){
           </div>
           <div class="team"><div class="team-flag">${p.flag_visitante||'⚽'}</div><div class="team-name">${p.equipo_visitante}</div></div>
         </div>
-        <div class="match-footer"><span class="match-time">${p.estadio||''} · ${p.hora||''}</span>${pill}</div>
+        <div class="match-footer"><span class="match-time">${p.estadio||''} · ${p.hora||''}</span>${estadoPill||pill}</div>
       </div>`;
     });
   }
