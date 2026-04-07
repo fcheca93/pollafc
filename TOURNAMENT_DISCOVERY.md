@@ -29,3 +29,13 @@ If `tournamentMatchesSeen` is greater than `0`, we can build the automatic impor
 ```
 
 Use it to see the exact competition names that SportSRC is returning right now.
+
+The response now also includes `sampleMatches` with match IDs.
+
+## Inspect one match in detail
+
+```txt
+/api/match-detail?token=YOUR_TOKEN&id=MATCH_ID
+```
+
+Use a real `id` from `sampleMatches` to inspect the raw SportSRC detail payload.
