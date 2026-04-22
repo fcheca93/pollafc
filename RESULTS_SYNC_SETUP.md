@@ -8,12 +8,18 @@ Run [supabase-results-sync.sql](C:/Users/fchec/OneDrive/Documentos/New%20project
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `SPORTSRC_API_KEY`
+- `API_FOOTBALL_KEY`
+- `RESULTS_PROVIDER`
+  Exact value: `api_football`
 - `RESULTS_SYNC_TOKEN`
 - `RESULTS_TIMEZONE`
   Suggested value: `America/Mexico_City`
 - `RESULTS_DAILY_BUDGET`
-  Suggested value: `1000`
+  Suggested value: `100`
+- `API_FOOTBALL_WORLD_CUP_LEAGUE_ID`
+  Optional override if you want to change the World Cup competition id later
+- `API_FOOTBALL_CHAMPIONS_LEAGUE_ID`
+  Optional override if you want to change the Champions competition id later
 
 ## 3. Match your local rows with the provider
 
@@ -43,14 +49,10 @@ For testing outside World Cup dates, force the provider lookup with:
 /api/sync-results?token=YOUR_TOKEN&date=2026-04-07&dryRun=true&force=true
 ```
 
-The endpoint now checks these provider buckets:
+The endpoint now pulls fixtures from API-Football for:
 
-- `scheduled`
-- `upcoming`
-- `inprogress`
-- `finished`
-
-That means you can link your local `partidos` rows to SportSRC before kickoff, not only once matches are live.
+- `world_cup_2026`
+- `champions_league`
 
 ## 5. What the sync updates
 

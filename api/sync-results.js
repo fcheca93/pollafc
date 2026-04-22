@@ -1,9 +1,13 @@
 const { getPollingPlan } = require("../results-sync-strategy.js");
 
-const SPORTSRC_BASE_URL = "https://api.sportsrc.org/v2/";
-const DEFAULT_PROVIDER = "sportsrc";
+const API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io/";
+const DEFAULT_PROVIDER = "api_football";
 const DEFAULT_TIMEZONE = "UTC";
-const PROVIDER_STATUS_BUCKETS = ["scheduled", "upcoming", "inprogress", "finished"];
+const API_FOOTBALL_STATUS_PARAMS = ["NS", "TBD", "1H", "HT", "2H", "ET", "BT", "P", "FT", "AET", "PEN"];
+const TOURNAMENT_LEAGUE_IDS = {
+  world_cup_2026: Number(process.env.API_FOOTBALL_WORLD_CUP_LEAGUE_ID || 1),
+  champions_league: Number(process.env.API_FOOTBALL_CHAMPIONS_LEAGUE_ID || 2)
+};
 
 function json(res, status, payload) {
   res.statusCode = status;
@@ -52,81 +56,54 @@ function scoreValue(...candidates) {
 }
 
 function mapProviderStatus(rawStatus) {
-  const status = normalizeText(rawStatus);
+  const status = String(rawStatus || "").toUpperCase();
   if (!status) return "programado";
-  if (status.includes("inprogress") || status.includes("live") || status.includes("1st") || status.includes("2nd") || status.includes("half")) {
-    return "en_juego";
-  }
-  if (status.includes("finish") || status.includes("full time") || status.includes("ft") || status.includes("ended")) {
-    return "finalizado";
-  }
+  if (["1H", "HT", "2H", "ET", "BT", "P", "LIVE"].includes(status)) return "en_juego";
+  if (["FT", "AET", "PEN"].includes(status)) return "finalizado";
   return "programado";
 }
 
-function extractTeamName(team, fallbackKeys = []) {
-  if (!team) return "";
-  if (typeof team === "string") return team;
-  for (const key of ["name", "team_name", "short_name", ...fallbackKeys]) {
-    if (team[key]) return team[key];
-  }
-  return "";
-}
-
 function extractProviderMatch(rawMatch) {
-  const homeTeam = rawMatch.homeTeam || rawMatch.home || rawMatch.teams?.home || rawMatch.local || {};
-  const awayTeam = rawMatch.awayTeam || rawMatch.away || rawMatch.teams?.away || rawMatch.visitante || {};
-  const score = rawMatch.score || rawMatch.scores || rawMatch.goals || {};
-  const status = rawMatch.status || rawMatch.state || rawMatch.fixture?.status || rawMatch.match_status || "";
+  const fixture = rawMatch.fixture || {};
+  const teams = rawMatch.teams || {};
+  const goals = rawMatch.goals || {};
+  const fixtureStatus = fixture.status || {};
+  const league = rawMatch.league || {};
 
   return {
-    provider_match_id: String(rawMatch.id || rawMatch.match_id || rawMatch.fixture_id || rawMatch.event_id || ""),
+    provider_match_id: String(fixture.id || rawMatch.id || ""),
     provider: DEFAULT_PROVIDER,
-    fecha: normalizeDate(rawMatch.date || rawMatch.match_date || rawMatch.utc_date || rawMatch.fixture?.date),
-    estado: mapProviderStatus(status.short || status.long || status),
-    provider_status_raw: status.short || status.long || status || null,
-    inicia_en_utc: rawMatch.date || rawMatch.utc_date || rawMatch.fixture?.date || null,
-    equipo_local: extractTeamName(homeTeam, ["home_name"]),
-    equipo_visitante: extractTeamName(awayTeam, ["away_name"]),
-    goles_local_real: scoreValue(
-      score.home,
-      score.home_score,
-      score.fulltime?.home,
-      rawMatch.home_score,
-      rawMatch.goals_home
-    ),
-    goles_visitante_real: scoreValue(
-      score.away,
-      score.away_score,
-      score.fulltime?.away,
-      rawMatch.away_score,
-      rawMatch.goals_away
-    )
+    torneo: league.id === TOURNAMENT_LEAGUE_IDS.champions_league ? "champions_league" : "world_cup_2026",
+    fecha: normalizeDate(fixture.date),
+    estado: mapProviderStatus(fixtureStatus.short),
+    provider_status_raw: fixtureStatus.short || null,
+    inicia_en_utc: fixture.date || null,
+    equipo_local: teams.home?.name || "",
+    equipo_visitante: teams.away?.name || "",
+    goles_local_real: scoreValue(goals.home),
+    goles_visitante_real: scoreValue(goals.away)
   };
 }
 
-async function fetchSportSrcMatches(date, status, apiKey) {
-  const url = new URL(SPORTSRC_BASE_URL);
-  url.searchParams.set("type", "matches");
-  url.searchParams.set("sport", "football");
+async function fetchApiFootballFixtures(date, leagueId, apiKey) {
+  const url = new URL(`${API_FOOTBALL_BASE_URL}fixtures`);
   url.searchParams.set("date", date);
-  url.searchParams.set("status", status);
+  url.searchParams.set("league", String(leagueId));
+  url.searchParams.set("season", "2026");
 
   const response = await fetch(url, {
     headers: {
-      "X-API-KEY": apiKey
+      "x-apisports-key": apiKey
     }
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`SportSRC ${status} request failed (${response.status}): ${errorText.slice(0, 300)}`);
+    throw new Error(`API-Football fixtures failed (${response.status}): ${errorText.slice(0, 300)}`);
   }
 
   const payload = await response.json();
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.data)) return payload.data;
-  if (Array.isArray(payload.matches)) return payload.matches;
-  return [];
+  return Array.isArray(payload.response) ? payload.response : [];
 }
 
 async function fetchSupabasePartidos(supabaseUrl, serviceRoleKey, date) {
@@ -187,9 +164,10 @@ function findLocalMatch(localMatches, providerMatch) {
 
   return localMatches.find((match) => {
     const sameDate = normalizeDate(match.fecha) === providerMatch.fecha;
+    const sameTournament = !match.torneo || match.torneo === providerMatch.torneo;
     const sameHome = normalizeText(match.equipo_local) === localName;
     const sameAway = normalizeText(match.equipo_visitante) === awayName;
-    return sameDate && sameHome && sameAway;
+    return sameDate && sameTournament && sameHome && sameAway;
   });
 }
 
@@ -197,6 +175,7 @@ function buildUpdatePayload(localMatch, providerMatch) {
   const payload = {
     provider: providerMatch.provider,
     provider_match_id: providerMatch.provider_match_id || localMatch.provider_match_id || null,
+    torneo: providerMatch.torneo || localMatch.torneo || "world_cup_2026",
     estado: providerMatch.estado || localMatch.estado || "programado",
     provider_status_raw: providerMatch.provider_status_raw || null,
     inicia_en_utc: providerMatch.inicia_en_utc || localMatch.inicia_en_utc || null,
@@ -236,17 +215,26 @@ module.exports = async (req, res) => {
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const sportSrcApiKey = process.env.SPORTSRC_API_KEY;
+  const apiFootballKey = process.env.API_FOOTBALL_KEY;
+  const configuredProvider = process.env.RESULTS_PROVIDER || DEFAULT_PROVIDER;
   const timeZone = process.env.RESULTS_TIMEZONE || DEFAULT_TIMEZONE;
   const date = normalizeDate((req.query && req.query.date) || getTodayInTimeZone(timeZone));
-  const dailyBudget = Number(process.env.RESULTS_DAILY_BUDGET || 1000);
+  const dailyBudget = Number(process.env.RESULTS_DAILY_BUDGET || 100);
   const dryRun = String((req.query && req.query.dryRun) || "").toLowerCase() === "true";
   const force = String((req.query && req.query.force) || "").toLowerCase() === "true";
 
-  if (!supabaseUrl || !supabaseServiceRoleKey || !sportSrcApiKey) {
+  if (configuredProvider !== DEFAULT_PROVIDER) {
+    return json(res, 400, {
+      ok: false,
+      error: `Unsupported RESULTS_PROVIDER: ${configuredProvider}`,
+      expected: DEFAULT_PROVIDER
+    });
+  }
+
+  if (!supabaseUrl || !supabaseServiceRoleKey || !apiFootballKey) {
     return json(res, 500, {
       error: "Missing env vars",
-      required: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SPORTSRC_API_KEY"]
+      required: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "API_FOOTBALL_KEY"]
     });
   }
 
@@ -262,16 +250,19 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const providerResponses = await Promise.all(PROVIDER_STATUS_BUCKETS.map((status) => fetchSportSrcMatches(date, status, sportSrcApiKey)));
-    const localMatches = await fetchSupabasePartidos(supabaseUrl, supabaseServiceRoleKey, date);
+    const [worldCupFixtures, championsFixtures, localMatches] = await Promise.all([
+      fetchApiFootballFixtures(date, TOURNAMENT_LEAGUE_IDS.world_cup_2026, apiFootballKey),
+      fetchApiFootballFixtures(date, TOURNAMENT_LEAGUE_IDS.champions_league, apiFootballKey),
+      fetchSupabasePartidos(supabaseUrl, supabaseServiceRoleKey, date)
+    ]);
 
     const providerMatches = uniqueBy(
-      providerResponses
-        .flat()
+      [...worldCupFixtures, ...championsFixtures]
         .map(extractProviderMatch)
         .filter((match) => match.equipo_local && match.equipo_visitante),
       (match) => `${match.provider_match_id}|${match.fecha}|${match.equipo_local}|${match.equipo_visitante}`
     );
+
     const updates = [];
     const unmatched = [];
 
@@ -280,6 +271,7 @@ module.exports = async (req, res) => {
       if (!localMatch) {
         unmatched.push({
           fecha: providerMatch.fecha,
+          torneo: providerMatch.torneo,
           equipo_local: providerMatch.equipo_local,
           equipo_visitante: providerMatch.equipo_visitante,
           provider_match_id: providerMatch.provider_match_id,
@@ -294,6 +286,7 @@ module.exports = async (req, res) => {
       updates.push({
         partido_id: localMatch.id,
         local: {
+          torneo: localMatch.torneo,
           equipo_local: localMatch.equipo_local,
           equipo_visitante: localMatch.equipo_visitante
         },
@@ -319,9 +312,10 @@ module.exports = async (req, res) => {
       force,
       provider: DEFAULT_PROVIDER,
       plan,
-      providerStatusesQueried: PROVIDER_STATUS_BUCKETS,
       providerMatchesSeen: providerMatches.length,
       providerMatchesByStatus,
+      apiFootballLeagueIds: TOURNAMENT_LEAGUE_IDS,
+      apiFootballStatusParamsUsed: API_FOOTBALL_STATUS_PARAMS,
       localMatchesSeen: localMatches.length,
       updated: updates.length,
       unmatched: unmatched.length,
@@ -336,3 +330,4 @@ module.exports = async (req, res) => {
     });
   }
 };
+
