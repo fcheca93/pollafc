@@ -326,8 +326,9 @@ module.exports = async (req, res) => {
     return json(res, 500, {
       ok: false,
       date,
-      error: error.message
+      error: error.message,
+      errorName: error.name || null,
+      errorCause: error.cause ? String(error.cause) : null
     });
   }
 };
-
