@@ -21,7 +21,7 @@ create index if not exists partidos_estado_idx
 
 comment on column public.partidos.provider is 'Proveedor externo del resultado, por ejemplo sportsrc.';
 comment on column public.partidos.provider_match_id is 'ID del partido en la API externa.';
-comment on column public.partidos.estado is 'programado, en_juego o finalizado.';
+comment on column public.partidos.estado is 'programado o finalizado.';
 comment on column public.partidos.provider_status_raw is 'Estado crudo devuelto por la API.';
 comment on column public.partidos.resultado_actualizado_en is 'Ultima vez que se sincronizo el resultado.';
 

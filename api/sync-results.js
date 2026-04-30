@@ -4,10 +4,7 @@ const API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io/";
 const DEFAULT_PROVIDER = "api_football";
 const DEFAULT_TIMEZONE = "UTC";
 const API_FOOTBALL_STATUS_PARAMS = ["NS", "TBD", "1H", "HT", "2H", "ET", "BT", "P", "FT", "AET", "PEN"];
-const TOURNAMENT_LEAGUE_IDS = {
-  world_cup_2026: Number(process.env.API_FOOTBALL_WORLD_CUP_LEAGUE_ID || 1),
-  champions_league: Number(process.env.API_FOOTBALL_CHAMPIONS_LEAGUE_ID || 2)
-};
+const WORLD_CUP_LEAGUE_ID = Number(process.env.API_FOOTBALL_WORLD_CUP_LEAGUE_ID || 1);
 
 function json(res, status, payload) {
   res.statusCode = status;
@@ -20,6 +17,17 @@ function getRequestToken(req) {
   if (authHeader.startsWith("Bearer ")) return authHeader.slice(7);
   if (req.query && req.query.token) return req.query.token;
   return "";
+}
+
+function isAuthorized(req) {
+  const requestToken = getRequestToken(req);
+  const cronSecret = process.env.CRON_SECRET || "";
+  const resultsSyncToken = process.env.RESULTS_SYNC_TOKEN || "";
+
+  if (cronSecret && requestToken === cronSecret) return true;
+  if (resultsSyncToken && requestToken === resultsSyncToken) return true;
+  if (!cronSecret && !resultsSyncToken) return true;
+  return false;
 }
 
 function normalizeText(value) {
@@ -58,7 +66,6 @@ function scoreValue(...candidates) {
 function mapProviderStatus(rawStatus) {
   const status = String(rawStatus || "").toUpperCase();
   if (!status) return "programado";
-  if (["1H", "HT", "2H", "ET", "BT", "P", "LIVE"].includes(status)) return "en_juego";
   if (["FT", "AET", "PEN"].includes(status)) return "finalizado";
   return "programado";
 }
@@ -68,20 +75,21 @@ function extractProviderMatch(rawMatch) {
   const teams = rawMatch.teams || {};
   const goals = rawMatch.goals || {};
   const fixtureStatus = fixture.status || {};
-  const league = rawMatch.league || {};
+  const mappedStatus = mapProviderStatus(fixtureStatus.short);
+  const isFinal = mappedStatus === "finalizado";
 
   return {
     provider_match_id: String(fixture.id || rawMatch.id || ""),
     provider: DEFAULT_PROVIDER,
-    torneo: league.id === TOURNAMENT_LEAGUE_IDS.champions_league ? "champions_league" : "world_cup_2026",
+    torneo: "world_cup_2026",
     fecha: normalizeDate(fixture.date),
-    estado: mapProviderStatus(fixtureStatus.short),
+    estado: mappedStatus,
     provider_status_raw: fixtureStatus.short || null,
     inicia_en_utc: fixture.date || null,
     equipo_local: teams.home?.name || "",
     equipo_visitante: teams.away?.name || "",
-    goles_local_real: scoreValue(goals.home),
-    goles_visitante_real: scoreValue(goals.away)
+    goles_local_real: isFinal ? scoreValue(goals.home) : null,
+    goles_visitante_real: isFinal ? scoreValue(goals.away) : null
   };
 }
 
@@ -208,8 +216,7 @@ module.exports = async (req, res) => {
     return json(res, 405, { error: "Method not allowed" });
   }
 
-  const expectedToken = process.env.RESULTS_SYNC_TOKEN || "";
-  if (expectedToken && getRequestToken(req) !== expectedToken) {
+  if (!isAuthorized(req)) {
     return json(res, 401, { error: "Unauthorized" });
   }
 
@@ -250,14 +257,13 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const [worldCupFixtures, championsFixtures, localMatches] = await Promise.all([
-      fetchApiFootballFixtures(date, TOURNAMENT_LEAGUE_IDS.world_cup_2026, apiFootballKey),
-      fetchApiFootballFixtures(date, TOURNAMENT_LEAGUE_IDS.champions_league, apiFootballKey),
+    const [worldCupFixtures, localMatches] = await Promise.all([
+      fetchApiFootballFixtures(date, WORLD_CUP_LEAGUE_ID, apiFootballKey),
       fetchSupabasePartidos(supabaseUrl, supabaseServiceRoleKey, date)
     ]);
 
     const providerMatches = uniqueBy(
-      [...worldCupFixtures, ...championsFixtures]
+      worldCupFixtures
         .map(extractProviderMatch)
         .filter((match) => match.equipo_local && match.equipo_visitante),
       (match) => `${match.provider_match_id}|${match.fecha}|${match.equipo_local}|${match.equipo_visitante}`
@@ -314,7 +320,7 @@ module.exports = async (req, res) => {
       plan,
       providerMatchesSeen: providerMatches.length,
       providerMatchesByStatus,
-      apiFootballLeagueIds: TOURNAMENT_LEAGUE_IDS,
+      apiFootballLeagueId: WORLD_CUP_LEAGUE_ID,
       apiFootballStatusParamsUsed: API_FOOTBALL_STATUS_PARAMS,
       localMatchesSeen: localMatches.length,
       updated: updates.length,
