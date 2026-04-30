@@ -19,6 +19,17 @@ function getRequestToken(req) {
   return "";
 }
 
+function isAuthorized(req) {
+  const requestToken = getRequestToken(req);
+  const cronSecret = process.env.CRON_SECRET || "";
+  const resultsSyncToken = process.env.RESULTS_SYNC_TOKEN || "";
+
+  if (cronSecret && requestToken === cronSecret) return true;
+  if (resultsSyncToken && requestToken === resultsSyncToken) return true;
+  if (!cronSecret && !resultsSyncToken) return true;
+  return false;
+}
+
 function normalizeText(value) {
   return String(value || "")
     .normalize("NFD")
@@ -205,8 +216,7 @@ module.exports = async (req, res) => {
     return json(res, 405, { error: "Method not allowed" });
   }
 
-  const expectedToken = process.env.RESULTS_SYNC_TOKEN || "";
-  if (expectedToken && getRequestToken(req) !== expectedToken) {
+  if (!isAuthorized(req)) {
     return json(res, 401, { error: "Unauthorized" });
   }
 

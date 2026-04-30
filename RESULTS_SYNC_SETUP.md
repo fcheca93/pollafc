@@ -12,6 +12,8 @@ Run [supabase-results-sync.sql](C:/Users/fchec/OneDrive/Documentos/New%20project
 - `RESULTS_PROVIDER`
   Exact value: `api_football`
 - `RESULTS_SYNC_TOKEN`
+- `CRON_SECRET`
+  Required if you want Vercel Cron Jobs to call the endpoint securely with the built-in `Authorization: Bearer <CRON_SECRET>` header
 - `RESULTS_TIMEZONE`
   Suggested value: `America/Mexico_City`
 - `RESULTS_DAILY_BUDGET`
@@ -78,3 +80,23 @@ The app now shows:
 - `Final X-Y` when `estado = finalizado`
 
 If there is no final score yet, it keeps showing the prediction pill as before.
+
+## 7. Vercel cron
+
+This repo includes a [vercel.json](C:/Users/fchec/OneDrive/Documentos/Apps/Polla%20Mundialista/pollafc/vercel.json) cron config:
+
+```txt
+*/10 10-23 * * *
+```
+
+That means:
+
+- every 10 minutes
+- from 10:00 UTC to 23:59 UTC
+- 84 executions per day
+
+Important:
+
+- Vercel Cron timezone is always UTC
+- on Vercel Hobby, schedules more frequent than once per day are not supported
+- on Vercel Pro or higher, this schedule works as expected
