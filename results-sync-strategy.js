@@ -1,6 +1,5 @@
 // World Cup 2026 results polling strategy for PollaFC.
-// This file is provider-agnostic on purpose so we can reuse it with SportSRC,
-// API-Football, or any future data source.
+// The product is World Cup-only and does not expose live scoring in the UI.
 
 const WORLD_CUP_2026_UTC_RANGES = [
   { start: "2026-06-11", end: "2026-06-12", matchesPerDay: 2, phase: "group" },
@@ -17,7 +16,7 @@ const WORLD_CUP_2026_UTC_RANGES = [
 
 const DEFAULT_DAILY_BUDGET = 1000;
 const DEFAULT_SAFETY_BUFFER = 0.15;
-const LIVE_INTERVAL_OPTIONS = [1, 2, 3, 5, 10, 15];
+const MATCH_DAY_INTERVAL_MINUTES = 10;
 
 function normalizeDate(input) {
   if (typeof input === "string") return input.slice(0, 10);
@@ -68,29 +67,6 @@ function getSafeBudget(dailyBudget = DEFAULT_DAILY_BUDGET, safetyBuffer = DEFAUL
   return Math.floor(dailyBudget * (1 - safetyBuffer));
 }
 
-function chooseLiveInterval(matchesPerDay, dailyBudget = DEFAULT_DAILY_BUDGET, safetyBuffer = DEFAULT_SAFETY_BUFFER) {
-  const activeHours = estimateActiveHours(matchesPerDay);
-  const safeBudget = getSafeBudget(dailyBudget, safetyBuffer);
-
-  for (const intervalMinutes of LIVE_INTERVAL_OPTIONS) {
-    const requests = estimateRequests(activeHours, intervalMinutes);
-    if (requests <= safeBudget) {
-      return {
-        intervalMinutes,
-        estimatedRequests: requests,
-        safeBudget
-      };
-    }
-  }
-
-  const fallbackInterval = LIVE_INTERVAL_OPTIONS[LIVE_INTERVAL_OPTIONS.length - 1];
-  return {
-    intervalMinutes: fallbackInterval,
-    estimatedRequests: estimateRequests(activeHours, fallbackInterval),
-    safeBudget
-  };
-}
-
 function getPollingPlan(dateInput, dailyBudget = DEFAULT_DAILY_BUDGET, safetyBuffer = DEFAULT_SAFETY_BUFFER) {
   const profile = getMatchProfile(dateInput);
 
@@ -105,38 +81,22 @@ function getPollingPlan(dateInput, dailyBudget = DEFAULT_DAILY_BUDGET, safetyBuf
     };
   }
 
-  const live = chooseLiveInterval(profile.matchesPerDay, dailyBudget, safetyBuffer);
-  const preMatchInterval = profile.matchesPerDay >= 4 ? 15 : 10;
-  const postMatchInterval = 30;
-  const preMatchRequests = estimateRequests(0.5, preMatchInterval);
-  const postMatchRequests = estimateRequests(1, postMatchInterval);
+  const safeBudget = getSafeBudget(dailyBudget, safetyBuffer);
+  const estimatedRequests = estimateRequests(profile.estimatedActiveHours, MATCH_DAY_INTERVAL_MINUTES);
 
   return {
     ...profile,
     dailyBudget,
-    safeBudget: live.safeBudget,
+    safeBudget,
     shouldPoll: true,
-    estimatedLiveRequests: live.estimatedRequests,
-    estimatedTotalRequests: live.estimatedRequests + preMatchRequests + postMatchRequests,
-    recommendation: `Poll every ${live.intervalMinutes} minute(s) while a match is live.`,
+    estimatedTotalRequests: estimatedRequests,
+    recommendation: `Poll every ${MATCH_DAY_INTERVAL_MINUTES} minute(s) on World Cup match days.`,
     windows: [
       {
-        label: "pre_match",
-        description: "Thirty minutes before the first kickoff of the day",
-        intervalMinutes: preMatchInterval,
-        estimatedRequests: preMatchRequests
-      },
-      {
-        label: "live",
-        description: "Only while at least one World Cup match is in progress",
-        intervalMinutes: live.intervalMinutes,
-        estimatedRequests: live.estimatedRequests
-      },
-      {
-        label: "post_match",
-        description: "Cooldown after the final match of the day",
-        intervalMinutes: postMatchInterval,
-        estimatedRequests: postMatchRequests
+        label: "match_day_sync",
+        description: "Run a single recurring sync cadence throughout World Cup match days",
+        intervalMinutes: MATCH_DAY_INTERVAL_MINUTES,
+        estimatedRequests
       }
     ]
   };
@@ -151,7 +111,7 @@ function summarizeTournamentBudget(dailyBudget = DEFAULT_DAILY_BUDGET, safetyBuf
       end: range.end,
       matchesPerDay: range.matchesPerDay,
       estimatedActiveHours: samplePlan.estimatedActiveHours,
-      liveIntervalMinutes: samplePlan.windows[1].intervalMinutes,
+      syncIntervalMinutes: samplePlan.windows[0].intervalMinutes,
       estimatedTotalRequestsPerDay: samplePlan.estimatedTotalRequests
     };
   });

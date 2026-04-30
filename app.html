@@ -42,9 +42,7 @@
     .pill-green{background:var(--green-pale);color:var(--green-mid);}
     .pill-amber{background:var(--gold-pale);color:#7a4f00;}
     .pill-gray{background:var(--off-white);color:var(--gray-500);border:1px solid var(--gray-300);}
-    .pill-live{background:var(--red);color:var(--white);animation:blink 2s infinite;}
     .pill-final{background:#e6f1fb;color:#185fa5;}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:.7}}
     .divider{display:flex;align-items:center;gap:10px;margin:16px 0;}
     .divider-line{flex:1;height:1px;background:var(--gray-300);}
     .divider span{font-size:12px;color:var(--gray-500);}
@@ -222,7 +220,7 @@
   <div class="scroll-body">
     <div class="group-banner">
       <div><div class="gname" id="grupo-nombre">Mi grupo</div><div class="gmeta" id="grupo-meta">Cargando...</div></div>
-      <span class="pill pill-live">En vivo</span>
+      <span class="pill pill-green">Mundial 2026</span>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
     <p class="progress-label" id="progress-label">0 de 0 partidos predichos</p>
@@ -264,7 +262,7 @@
   <div class="scroll-body">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <span style="font-size:15px;font-weight:700;" id="ranking-grupo-nombre">Mi grupo</span>
-      <span class="pill pill-live">En vivo</span>
+      <span class="pill pill-green">Resultados actualizados</span>
     </div>
     <div id="ranking-lista"><p style="color:var(--gray-400);text-align:center;padding:20px;">Cargando ranking...</p></div>
     <button class="btn btn-outline" style="margin-top:20px;" onclick="shareWA('ranking')">
@@ -329,7 +327,7 @@
       <div class="error-msg" id="crear-error"></div>
       <div id="crear-step1">
         <div class="field"><label>Nombre de la polla</label><input type="text" id="polla-nombre" placeholder="Ej: Los Cracks del Trabajo" /></div>
-        <div class="field"><label>Torneo</label><select id="polla-torneo"><option value="world_cup_2026">⚽ Mundial 2026</option><option value="champions_league">🏆 Champions League</option></select></div>
+        <div class="field"><label>Torneo</label><select id="polla-torneo" disabled><option value="world_cup_2026">⚽ Mundial 2026</option></select></div>
         <div class="slabel" style="margin-top:4px;">Tipo</div>
         <div class="option-card selected" onclick="selOpt(this)"><div class="opt-head"><div class="opt-title">Resultado exacto</div><span class="pill pill-green">Popular</span></div><div class="opt-desc">3 pts exacto · 1 pt ganador correcto</div></div>
         <div class="option-card" onclick="selOpt(this)"><div class="opt-title">Solo el campeón</div><div class="opt-desc">Cada jugador elige quién gana</div></div>
@@ -395,15 +393,15 @@ const{createClient}=supabase;
 const sb=createClient('https://pgaoiyypqdwcmmnyvumo.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnYW9peXlwcWR3Y21tbnl2dW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTE3MDUsImV4cCI6MjA5MDI4NzcwNX0.LDWMwWXE1nOxlNHyxxwnqWewC5JCXnsqFR6W8XFCVa0');
 
 let currentUser=null,currentPerfil=null,currentGrupo=null,currentPartidoId=null,scoreH=0,scoreA=0,selectedAvatar='green';
-const TORNEO_LABELS={world_cup_2026:'Mundial 2026',champions_league:'Champions League'};
+const FIXED_GROUP_RULES={torneo:'world_cup_2026',tipo:'exacto',bonus_campeon:true};
+const TORNEO_LABELS={world_cup_2026:'Mundial 2026'};
 
 function normalizeTournamentValue(value){
   if(!value)return 'world_cup_2026';
   const normalized=String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  if(normalized.includes('champions'))return 'champions_league';
   if(normalized.includes('world_cup_2026'))return 'world_cup_2026';
   if(normalized.includes('mundial'))return 'world_cup_2026';
-  return value;
+  return 'world_cup_2026';
 }
 
 function getTournamentLabel(value){
@@ -469,15 +467,12 @@ async function logoutUser(){
 function getResultadoTexto(partido){
   const tieneMarcador=partido.goles_local_real!==null&&partido.goles_local_real!==undefined&&partido.goles_visitante_real!==null&&partido.goles_visitante_real!==undefined;
   if(!tieneMarcador)return '';
-  const estado=(partido.estado||'').toLowerCase();
-  const prefijo=estado==='finalizado'?'Final':(estado==='en_juego'?'En juego':'Resultado');
-  return `${prefijo} ${partido.goles_local_real}-${partido.goles_visitante_real}`;
+  return `Final ${partido.goles_local_real}-${partido.goles_visitante_real}`;
 }
 
 function getEstadoPill(partido){
   const estado=(partido.estado||'').toLowerCase();
   const resultadoTexto=getResultadoTexto(partido);
-  if(estado==='en_juego'&&resultadoTexto)return `<span class="pill pill-live">${resultadoTexto}</span>`;
   if(estado==='finalizado'&&resultadoTexto)return `<span class="pill pill-final">${resultadoTexto}</span>`;
   return '';
 }
@@ -485,7 +480,7 @@ function getEstadoPill(partido){
 async function loadPartidos(){
   const lista=document.getElementById('partidos-lista');
   if(!currentUser)return;
-  const torneoActual=normalizeTournamentValue(currentGrupo?.torneo);
+  const torneoActual=FIXED_GROUP_RULES.torneo;
   if(currentGrupo){
     document.getElementById('grupo-nombre').textContent=currentGrupo.nombre;
     const{count}=await sb.from('miembros').select('*',{count:'exact'}).eq('grupo_id',currentGrupo.id);
@@ -495,10 +490,7 @@ async function loadPartidos(){
     document.getElementById('grupo-meta').textContent='Crea o únete a una polla';
   }
   let partidosQuery=sb.from('partidos').select('*').order('fecha').order('hora');
-  if(currentGrupo){
-    if(torneoActual==='champions_league')partidosQuery=partidosQuery.eq('torneo','champions_league');
-    else partidosQuery=partidosQuery.or('torneo.eq.world_cup_2026,torneo.is.null');
-  }
+  partidosQuery=partidosQuery.or('torneo.eq.world_cup_2026,torneo.is.null');
   const{data:partidos}=await partidosQuery;
   if(!partidos||partidos.length===0){lista.innerHTML='<p style="color:var(--gray-400);text-align:center;padding:30px;">No hay partidos cargados aún</p>';return;}
   let predsMap={};
@@ -598,7 +590,7 @@ async function loadMiPolla(){
     document.getElementById('stat-exactos').textContent=exactos;
     document.getElementById('stat-pct').textContent=total>0?`${Math.round(100*exactos/total)}%`:'0%';
   }
-  const{data:misGrupos}=await sb.from('miembros').select('puntos,grupos(nombre,codigo,torneo)').eq('perfil_id',currentUser.id);
+  const{data:misGrupos}=await sb.from('miembros').select('puntos,grupos(nombre,codigo)').eq('perfil_id',currentUser.id);
   const lista=document.getElementById('mis-grupos-lista');
   lista.innerHTML=(!misGrupos||misGrupos.length===0)
     ?'<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">No estás en ningún grupo aún</p>'
@@ -618,17 +610,17 @@ function crearBack(){
 }
 async function crearPolla(){
   const nombre=document.getElementById('polla-nombre').value.trim();
-  const torneo=normalizeTournamentValue(document.getElementById('polla-torneo').value);
-  const bonus=!document.getElementById('toggle-campeon').classList.contains('off');
+  if(!nombre)return showError('crear-error','Ponle un nombre a tu polla');
+  const bonus=FIXED_GROUP_RULES.bonus_campeon;
   const codigo='FC-'+Math.random().toString(36).substring(2,6).toUpperCase();
   loading(true,'Creando polla...');
-  const{data:grupo,error}=await sb.from('grupos').insert({nombre,codigo,torneo,tipo:'exacto',bonus_campeon:bonus,creador_id:currentUser.id}).select().single();
+  const{data:grupo,error}=await sb.from('grupos').insert({nombre,codigo,...FIXED_GROUP_RULES,bonus_campeon:bonus,creador_id:currentUser.id}).select().single();
   if(error){loading(false);return showError('crear-error','Error al crear la polla');}
   await sb.from('miembros').insert({grupo_id:grupo.id,perfil_id:currentUser.id,puntos:0});
   currentGrupo=grupo;
   document.getElementById('invite-code').textContent=codigo;
   document.getElementById('sum-nombre').textContent=nombre;
-  document.getElementById('sum-torneo').textContent=getTournamentLabel(torneo);
+  document.getElementById('sum-torneo').textContent=getTournamentLabel(FIXED_GROUP_RULES.torneo);
   loading(false);goTo('s-creada');
 }
 async function unirsePolla(){
@@ -642,7 +634,7 @@ async function unirsePolla(){
   currentGrupo=grupo;
   document.getElementById('invite-code').textContent=codigo;
   document.getElementById('sum-nombre').textContent=grupo.nombre;
-  document.getElementById('sum-torneo').textContent=getTournamentLabel(grupo.torneo);
+  document.getElementById('sum-torneo').textContent=getTournamentLabel(FIXED_GROUP_RULES.torneo);
   loading(false);goTo('s-creada');
 }
 function switchTab(tab){
@@ -651,6 +643,25 @@ function switchTab(tab){
   document.getElementById('panel-unirse').style.display=esCr?'none':'block';
   document.getElementById('tab-crear').style.cssText=`flex:1;padding:12px;background:none;border:none;border-bottom:2px solid ${esCr?'var(--green-main)':'transparent'};font-size:14px;font-weight:600;color:${esCr?'var(--green-main)':'var(--gray-400)'};cursor:pointer;`;
   document.getElementById('tab-unirse').style.cssText=`flex:1;padding:12px;background:none;border:none;border-bottom:2px solid ${esCr?'transparent':'var(--green-main)'};font-size:14px;font-weight:600;color:${esCr?'var(--gray-400)':'var(--green-main)'};cursor:pointer;`;
+}
+function applyWorldCupOnlyMode(){
+  const torneoField=document.getElementById('polla-torneo')?.closest('.field');
+  if(torneoField)torneoField.style.display='none';
+  document.querySelectorAll('#crear-step1 .option-card').forEach(el=>el.style.display='none');
+  const tipoLabel=[...document.querySelectorAll('#crear-step1 .slabel')].find(el=>el.textContent.trim().toLowerCase()==='tipo');
+  if(tipoLabel)tipoLabel.style.display='none';
+  const steps=document.getElementById('crear-steps');
+  if(steps)steps.style.display='none';
+  const continueBtn=document.querySelector('#crear-step1 .btn.btn-primary');
+  if(continueBtn){
+    continueBtn.textContent='Crear polla ⚽';
+    continueBtn.setAttribute('onclick','crearPolla()');
+    continueBtn.style.marginTop='20px';
+  }
+  const step2=document.getElementById('crear-step2');
+  if(step2)step2.style.display='none';
+  const summaryTournamentRow=document.getElementById('sum-torneo')?.closest('.summary-row');
+  if(summaryTournamentRow)summaryTournamentRow.style.display='none';
 }
 function regNext(){
   const n=document.getElementById('reg-nombre').value.trim();
@@ -673,6 +684,7 @@ function copyCode(){
   navigator.clipboard.writeText(code).then(()=>{const btn=document.querySelector('.copy-btn');btn.textContent='✓ Copiado';setTimeout(()=>btn.textContent='Copiar',2000);});
 }
 (async()=>{
+  applyWorldCupOnlyMode();
   loading(true,'Iniciando...');
   const{data:{session}}=await sb.auth.getSession();
   if(session){currentUser=session.user;await afterLogin();}

@@ -18,6 +18,6 @@ create index if not exists grupos_torneo_idx
 create index if not exists partidos_torneo_idx
   on public.partidos (torneo);
 
-comment on column public.grupos.torneo is 'Torneo de la polla: world_cup_2026 o champions_league.';
-comment on column public.partidos.torneo is 'Torneo al que pertenece el partido.';
+comment on column public.grupos.torneo is 'Torneo fijo de la polla: world_cup_2026.';
+comment on column public.partidos.torneo is 'Torneo al que pertenece el partido. En PollaFC actual: world_cup_2026.';
 
